@@ -1,1 +1,49 @@
+name: Nginx CI/CD Pipeline
 
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-scan-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t my-nginx .
+
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'my-nginx'
+          format: 'table'
+          exit-code: '0'
+
+      - name: Deploy to EC2 (Amazon Linux)
+        uses: appleboy/ssh-action@master
+        with:
+          host: 54.204.66.245
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo yum update -y || true
+            sudo yum install docker -y || true
+            sudo service docker start || true
+            sudo usermod -a -G docker ec2-user || true
+
+            cd ~
+            if [ ! -d "nginx-cicd" ]; then
+              git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO.git
+            fi
+
+            cd nginx-cicd
+            git pull origin main
+
+            docker build -t my-nginx .
+            docker stop nginx || true
+            docker rm nginx || true
+            docker run -d -p 80:80 --name nginx my-nginx
