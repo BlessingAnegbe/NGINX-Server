@@ -1,66 +1,43 @@
 name: Nginx CI/CD Pipeline
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
-build-scan-deploy:
-runs-on: ec2-user
+  build-scan-deploy:
+    runs-on: ubuntu-latest
 
-```
-steps:
-  - name: Checkout code
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  - name: Build Docker image
-    run: docker build -t my-nginx .
+      - name: Build Docker image
+        run: docker build -t my-nginx .
 
-  - name: Trivy scan
-    uses: aquasecurity/trivy-action@master
-    with:
-      image-ref: my-nginx
-      format: table
-      exit-code: 1
-      severity: HIGH,CRITICAL
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update -y
+          sudo apt-get install -y trivy
 
-  - name: Deploy to EC2
-    uses: appleboy/ssh-action@master
-    with:
-      host: ${172.31.20.8}
-      username: ${ec2-user}
-      key: ${-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
-NhAAAAAwEAAQAAAQEAudttMbBkYg1bO+S2pEwPX93DyhMIMlE1GjyDlUxsZ4OB9d1zZJZi
-JrdshgS5E5ZPWdx6Abpmi34KMxwqpKEGOxWuYOgAv9shaDdWnHTgx/6f4YED6vMoOQToRU
-cr0rGoGpPOt5YxhJcTEm44yKrlZxBdMVSrqEt4dF26MNIaxARaKOPfLP6GtJwnXJw/xELg
-5rFvydImdWS94T6eK1HQVyczhZY2A5t02gA5qDviBUk9uGBJnDoKht4sM96uHtwvLV/GJ6
-q9way4ciCe6TaDnlzR2UQUL/54XjQdKLmqTt7DkOtObRNMLTJvoe9vLZW5X+FIziKdoh/R
-1ji+PdvATQAAA9hi10KIYtdCiAAAAAdzc2gtcnNhAAABAQC5220xsGRiDVs75LakTA9f3c
-PKEwgyUTUaPIOVTGxng4H13XNklmImt2yGBLkTlk9Z3HoBumaLfgozHCqkoQY7Fa5g6AC/
-2yFoN1acdODH/p/hgQPq8yg5BOhFRyvSsagak863ljGElxMSbjjIquVnEF0xVKuoS3h0Xb
-ow0hrEBFoo498s/oa0nCdcnD/EQuDmsW/J0iZ1ZL3hPp4rUdBXJzOFljYDm3TaADmoO+IF
-ST24YEmcOgqG3iwz3q4e3C8tX8Ynqr3BrLhyIJ7pNoOeXNHZRBQv/nheNB0ouapO3sOQ60
-5tE0wtMm+h728tlblf4UjOIp2iH9HWOL4928BNAAAAAwEAAQAAAQAmZH9//jIeVyf7jVl1
-QwkCAquJOLk+u6u+ibWcx7a1A2N7SI2nv7Dy0n0mih85PpmRtIu3g6vfMOAmgrEEZQcGeY
-oWFpbhCwExqAzKMRKl/aFFUgNfK2+pp6vbc8JHuc9B/jp7jhkYjKSx7/bm7PaKfcTihd0X
-3M87KollwGErEGj4+1u78dqb/9FLbmyizDGg48RJCZTcPqwF3g3glC59FDxnn5uxiR7g38
-N/5FphD4QHXjZAdXfS0YFrQfR0cq0/WBlxvOW0DnHC2aOD27Bjv4Cl+WhBFsrtd+ky8nqh
-1klm+zuvKb0Ksoghfce73m99wtSstLgtv2ZXmfhmVpX5AAAAgQC5gCT5knMie1tw2dYBh0
-q/V7OFmzF8nqEc7W8EQRMq/NQ3W2fYGL2AHluixTgDGf56ymYGidhnfk0C04svZtaqV4qh
-Uduk2WNXXZ3V2JMN7fOnxOgzZXCLYUAjvEGiYZZQrI/1IQtZTnG/cLuwIFLgT1qpm/NBfJ
-pDlqTY8AwpcAAAAIEA2vEJxEoFUq/Ug5ljdGLQba873JnJkz5BVgxY2ITd/bRB8HsClBrv
-5CXs1K4Ihhi4D/lxBRAw6zW/laP3+zbKdQS4g41Vgc+meHfyQsvvBEnGh+o1Uyilo9Gn5G
-aLH+135FVv9BGHN/XXxarFRz8BkDkoudoxVfY5snkwMw9measAAACBANlQznsczqVUHfUD
-VMeTWmOJ9HmRkorcTgXoJW1Ua78/uB19Pr2b4Zn4I3+b2AUaBzFSbRAAyiXHUWm7SryeVn
-NvnXM0NsMhyaD1sSH1IUuHRGbzhO9/25wUYSH5l+neYLjIpmEBn5cGiYtefTjht4i3o5ki
-ldqEAeFbvdmmquXnAAAAH2JsZXNzaW5nIGFuZWdiZUBERVNLVE9QLTZWVElHSEYBAgM=
------END OPENSSH PRIVATE KEY-----
-}
-      script: |
-        docker stop nginx || true
-        docker rm nginx || true
-        docker run -d -p 80:80 --name nginx nginx:latest
-```
+      - name: Scan Docker image with Trivy
+        run: trivy image --exit-code 0 --severity HIGH,CRITICAL my-nginx
 
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo yum install -y docker || true
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            docker stop nginx || true
+            docker rm nginx || true
+            docker pull nginx:latest
+            docker run -d -p 80:80 --name nginx nginx:latest
